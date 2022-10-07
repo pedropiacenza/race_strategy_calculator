@@ -10,7 +10,6 @@ class RaceRules:
     race_start: dt.time = dt.time(hour=11, minute=30)
     pit_duration: dt.timedelta = dt.timedelta(seconds = 20)
     swap_duration: dt.timedelta = dt.timedelta(minutes = 3)
-    stop_time_loss: dt.timedelta = dt.timedelta(seconds = 20)
     max_kart_runtime: dt.timedelta = dt.timedelta(hours = 2, minutes = 15)
 
 
@@ -36,6 +35,7 @@ class RaceStrat:
         of time that driver gets
         """
         #Create an alternating driver order and then create stops with minimum duration for all drivers 
+        ongoing_stint_idx = len(self.stints) #Used for printing strategy at the end
         driver_order = self.get_stint_driver_order(current_driver)
         next_stints = self.create_min_stints(driver_order, current_stint_start, current_driver, dt.timedelta(minutes=2), use_this_time)
         #Start assigning driving time for the stints based on who has driven less (brute force, 1 min at a time)
@@ -47,18 +47,19 @@ class RaceStrat:
             low_t_driver = self.get_lowest_driver_time(self.stints+next_stints)
             # Alocate this driver with more time on his shortest stint
             idx = self.get_shortest_stint_idx(low_t_driver, self.stints+next_stints) 
-            if idx:
+            if idx is not None:
                 (self.stints+next_stints)[idx].duration += dt.timedelta(minutes=1)               
                 stints_total_time = dt.timedelta(minutes=0)
                 for d in self.drivers:
                     stints_total_time += self.get_drive_time(d, next_stints)
             else: 
-                #This shouldn't happen... idx should never be None
+                #This shouldn't happen... idx should never return None
                 print(" >>>> BUG! get_shortest_stint returned None <<<<")
                 print(f"lowest_t_driver was {low_t_driver} based on these stints: " )
                 self.print_stints(self.stints+next_stints)
-                break
-        return self.stints + next_stints
+        #Now we print the full race strategy with past and future stints    
+        self.print_stints(self.stints + next_stints, ongoing_stint_idx)
+        
 
 
     def get_shortest_stint_idx(self, driver: str, stint_list: List[Stint] = None) -> int:
@@ -172,7 +173,7 @@ class RaceStrat:
         stops_left = self.racecfg.num_pitstops - self.num_stops
         swaps_left = self.racecfg.num_kart_swaps - self.num_swaps
         raw_time_left = self.get_race_time_left(use_this_time)
-        drive_time = raw_time_left - stops_left*(self.racecfg.pit_duration + self.racecfg.stop_time_loss) - swaps_left*(self.racecfg.swap_duration + self.racecfg.stop_time_loss)
+        drive_time = raw_time_left - stops_left*(self.racecfg.pit_duration) - swaps_left*(self.racecfg.swap_duration)
         return drive_time
 
     def _get_race_end_time(self) -> dt.time:
@@ -189,7 +190,7 @@ class RaceStrat:
         return new_datetime.time()
 
     
-    def print_stints(self, stint_list: List[Stint] = None):
+    def print_stints(self, stint_list: List[Stint] = None, ongoing_stint_idx = None):
         """
         Prints a list of Stints in a nice readable format
         """
@@ -197,7 +198,10 @@ class RaceStrat:
             stint_list = self.stints
         print("\n================ STINTS DESCRIPTION ==========================\n")
         for idx, stint in enumerate(stint_list):
-            print(f"\tStint #{idx+1}\t|   {stint.driver}  \t|   {stint.duration}")
+            if ongoing_stint_idx == idx:
+                print(f"\tStint #{idx+1} (ongoing) \t|   {stint.driver}  \t|   {stint.duration}")
+            else:
+                print(f"\tStint #{idx+1}\t\t|   {stint.driver}  \t|   {stint.duration}")
         print("==============================================================")
         for d in self.drivers:
             print(f"{d} has been on track for\t{self.get_drive_time(d, stint_list)}")
@@ -214,12 +218,12 @@ def test1():
     strat.add_stint(Stint("Karim", dt.timedelta(minutes=28), swap=False))
     strat.add_stint(Stint("Pedro", dt.timedelta(minutes=20), swap=False))
     
-    race_stints = strat.get_race_strat(
+    strat.get_race_strat(
         current_stint_start=dt.time(hour=12, minute=35),
         current_driver="Joe",
         use_this_time=dt.time(hour=12, minute=44)
     )
-    strat.print_stints(race_stints)
+    
 
 
 def test2():
@@ -233,17 +237,30 @@ def test2():
     strat.add_stint(Stint("Pedro", dt.timedelta(minutes=10), swap=False))
     strat.add_stint(Stint("Karim", dt.timedelta(minutes=22), swap=False))
 
-    race_stints = strat.get_race_strat(
+    strat.get_race_strat(
         current_stint_start=dt.time(hour=13, minute=45),
         current_driver="Joe",
         use_this_time=dt.time(hour=13, minute=48)
     )
-    strat.print_stints(race_stints)
+    
+
+def test3():
+    strat = RaceStrat(
+        drivers = ["Pedro", "Karim", "Joe","Manuel"],
+        racerules = RaceRules()
+        )
+    strat.get_race_strat(
+        current_stint_start=dt.time(hour=11, minute=30),
+        current_driver="Pedro",
+        use_this_time=dt.time(hour=11, minute=40)
+    )
+
 
 
 if __name__ == "__main__":
     test1()
-    test2()
+    #test2()
+    #test3()
 
 
         

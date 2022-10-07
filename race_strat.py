@@ -46,9 +46,9 @@ class RaceStrat:
         while drive_time_left >= stints_total_time:
             low_t_driver = self.get_lowest_driver_time(self.stints+next_stints)
             # Alocate this driver with more time on his shortest stint
-            idx = self.get_shortest_stint_idx(low_t_driver, self.stints+next_stints) 
+            idx = self.get_shortest_stint_idx(low_t_driver, next_stints) 
             if idx is not None:
-                (self.stints+next_stints)[idx].duration += dt.timedelta(minutes=1)               
+                next_stints[idx].duration += dt.timedelta(seconds=30)               
                 stints_total_time = dt.timedelta(minutes=0)
                 for d in self.drivers:
                     stints_total_time += self.get_drive_time(d, next_stints)
@@ -255,10 +255,27 @@ def test3():
         use_this_time=dt.time(hour=11, minute=40)
     )
 
+def test4():
+    strat = RaceStrat(
+        drivers = ["Pedro", "Karim", "Joe","Matt"],
+        racerules = RaceRules()
+        )
+    strat.add_stint(Stint("Pedro", dt.timedelta(minutes=21), swap=False))
+    strat.add_stint(Stint("Karim", dt.timedelta(minutes=21), swap=False))
+    strat.add_stint(Stint("Joe", dt.timedelta(minutes=21), swap=False))
+    strat.add_stint(Stint("Matt", dt.timedelta(minutes=10), swap=False))
+    strat.add_stint(Stint("Matt", dt.timedelta(minutes=11), swap=False))
+    strat.get_race_strat(
+        current_stint_start=dt.time(hour=13, minute=10),
+        current_driver="Pedro",
+        use_this_time=dt.time(hour=13, minute=15)
+    )
+
+
 
 
 if __name__ == "__main__":
-    test1()
+    test4()
     #test2()
     #test3()
 
